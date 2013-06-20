@@ -121,46 +121,54 @@
         }
         
         //get reflection bounds
-        CGSize size = CGSizeMake(self.bounds.size.width, self.bounds.size.height * _reflectionScale);
-        if (size.height > 0.0f && size.width > 0.0f)
-        {
-            //create gradient mask
-            UIGraphicsBeginImageContextWithOptions(size, YES, 0.0f);
-            CGContextRef gradientContext = UIGraphicsGetCurrentContext();
-            CGFloat colors[] = {1.0f, 1.0f, 0.0f, 1.0f};
-            CGColorSpaceRef colorSpace = CGColorSpaceCreateDeviceGray();
-            CGGradientRef gradient = CGGradientCreateWithColorComponents(colorSpace, colors, NULL, 2);
-            CGPoint gradientStartPoint = CGPointMake(0.0f, 0.0f);
-            CGPoint gradientEndPoint = CGPointMake(0.0f, size.height);
-            CGContextDrawLinearGradient(gradientContext, gradient, gradientStartPoint,
-                                        gradientEndPoint, kCGGradientDrawsAfterEndLocation);
-            CGImageRef gradientMask = CGBitmapContextCreateImage(gradientContext);
-            CGGradientRelease(gradient);
-            CGColorSpaceRelease(colorSpace);
-            UIGraphicsEndImageContext();
+        dispatch_async(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_LOW, 0), ^{
+            CGSize size = CGSizeMake(self.bounds.size.width, self.bounds.size.height * _reflectionScale);
+            if (size.height > 0.0f && size.width > 0.0f)
+            {
+                //create gradient mask
+                UIGraphicsBeginImageContextWithOptions(size, YES, 0.0f);
+                CGContextRef gradientContext = UIGraphicsGetCurrentContext();
+                CGFloat colors[] = {1.0f, 1.0f, 0.0f, 1.0f};
+                CGColorSpaceRef colorSpace = CGColorSpaceCreateDeviceGray();
+                CGGradientRef gradient = CGGradientCreateWithColorComponents(colorSpace, colors, NULL, 2);
+                CGPoint gradientStartPoint = CGPointMake(0.0f, 0.0f);
+                CGPoint gradientEndPoint = CGPointMake(0.0f, size.height);
+                CGContextDrawLinearGradient(gradientContext, gradient, gradientStartPoint,
+                                            gradientEndPoint, kCGGradientDrawsAfterEndLocation);
+                CGImageRef gradientMask = CGBitmapContextCreateImage(gradientContext);
+                CGGradientRelease(gradient);
+                CGColorSpaceRelease(colorSpace);
+                UIGraphicsEndImageContext();
+                
+                //create drawing context
+                UIGraphicsBeginImageContextWithOptions(size, NO, 0.0f);
+                CGContextRef context = UIGraphicsGetCurrentContext();
+                CGContextScaleCTM(context, 1.0f, -1.0f);
+                CGContextTranslateCTM(context, 0.0f, -self.bounds.size.height);
+                
+                //clip to gradient
+                CGContextClipToMask(context, CGRectMake(0.0f, self.bounds.size.height - size.height,
+                                                        size.width, size.height), gradientMask);
+                CGImageRelease(gradientMask);
+                
+                //draw reflected layer content
+                [self.layer renderInContext:context];
+                
+                //capture resultant image
+                image = UIGraphicsGetImageFromCurrentImageContext();
+                UIGraphicsEndImageContext();
+            }
             
-            //create drawing context
-            UIGraphicsBeginImageContextWithOptions(size, NO, 0.0f);
-            CGContextRef context = UIGraphicsGetCurrentContext();
-            CGContextScaleCTM(context, 1.0f, -1.0f);
-            CGContextTranslateCTM(context, 0.0f, -self.bounds.size.height);
-            
-            //clip to gradient
-            CGContextClipToMask(context, CGRectMake(0.0f, self.bounds.size.height - size.height,
-                                                    size.width, size.height), gradientMask);
-            CGImageRelease(gradientMask);
-            
-            //draw reflected layer content
-            [self.layer renderInContext:context];
-            
-            //capture resultant image
-            _reflectionView.image = UIGraphicsGetImageFromCurrentImageContext();
-            UIGraphicsEndImageContext();
-        }
-        
-        //update reflection
-        _reflectionView.alpha = _reflectionAlpha;
-        _reflectionView.frame = CGRectMake(0, self.bounds.size.height + _reflectionGap, size.width, size.height);
+            //update reflection
+            dispatch_async(dispatch_get_main_queue(), ^{
+                if (image) {
+                    _reflectionView.image = image;
+                    
+                }
+                _reflectionView.alpha = _reflectionAlpha;
+                _reflectionView.frame = CGRectMake(0, self.bounds.size.height + _reflectionGap, size.width, size.height);
+            });
+        });
     }
 }
 
