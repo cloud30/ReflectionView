@@ -123,6 +123,7 @@
         //get reflection bounds
         dispatch_async(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_LOW, 0), ^{
             CGSize size = CGSizeMake(self.bounds.size.width, self.bounds.size.height * _reflectionScale);
+            UIImage *image = nil;
             if (size.height > 0.0f && size.width > 0.0f)
             {
                 //create gradient mask
